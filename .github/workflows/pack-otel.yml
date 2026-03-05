@@ -1,0 +1,44 @@
+name: Package OTEL for Offline Use
+on:
+  workflow_dispatch:
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Download Packages
+        run: |
+          mkdir -p nupkg-files
+          dotnet new console -n DummyPackager
+          cd DummyPackager
+          
+          # 下載指定穩定版本及其所有依賴項
+          dotnet add package OpenTelemetry --version 1.9.0
+          dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.9.0
+          dotnet add package OpenTelemetry.Instrumentation.AspNetCore --version 1.9.0
+          dotnet add package OpenTelemetry.Instrumentation.Http --version 1.9.0
+          dotnet add package Microsoft.Extensions.Hosting --version 8.0.0
+          
+          # 從快取中找出所有相關的 .nupkg 檔案
+          find ~/.nuget/packages -name "*.nupkg" -exec cp {} ../nupkg-files/ \;
+          cd ..
+          
+      - name: Zip Bundle
+        run: |
+          zip -j otel-v1.9.0-bundle.zip nupkg-files/*.nupkg
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.9.0-offline
+          name: OTEL v1.9.0 Offline Bundle
+          files: otel-v1.9.0-bundle.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
